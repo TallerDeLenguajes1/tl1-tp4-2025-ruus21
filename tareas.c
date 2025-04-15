@@ -27,3 +27,32 @@ transferidas a la lista de tareas realizadas.
 4) Implemente una funcionalidad que permita consultar tareas por id o palabra clave y
 mostrarlas por pantalla, indicando si corresponde a una tarea pendiente o realizada.
 };*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+typedef struct tarea{
+int TareaID;//Numérico autoincremental comenzando en 1000
+char *Descripcion; //
+int Duracion; // entre 10 – 100
+} Tarea;
+
+typedef struct nodo{
+Tarea T;
+Nodo *Siguiente;
+} Nodo;
+
+typedef Nodo * Lista;
+
+Lista crearListaVacia(){
+    return NULL;
+}
+
+int main() {
+    Lista L;
+    L = crearListaVacia(); // Declaración y asignación 
+
+    
+    return 0;
+}
