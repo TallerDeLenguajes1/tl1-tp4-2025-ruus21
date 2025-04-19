@@ -1,223 +1,238 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define ID_INICIAL 1000
+#include <time.h>
 
-typedef struct tarea {
-    int TareaID;
+struct Producto {
+    int ProductoID;
+    int Cantidad;
+    char *TipoProducto;
+    float PrecioUnitario;
+};
+
+struct Cliente {
+    int ClienteID;
+    char *NombreCliente;
+    int CantidadProductosAPedir;
+    struct Producto *Productos;
+};
+
+struct Tarea{
+    int TareaID; // Numérico autoincremental comenzando en 1000
     char *Descripcion;
-    int Duracion;
-} Tarea;
+    int Duracion; // entre 10– 100
+};
 
-typedef struct nodo {
-    Tarea T;
-    struct nodo *Siguiente;
-} Nodo;
+struct Nodo{
+    struct Tarea T;
+    struct Nodo *Siguiente;
+};
 
-typedef Nodo *Lista;
+struct Nodo *tareasPendientes = NULL;
+struct Nodo *tareasRealizadas = NULL;
 
-Lista crearListaVacia();
-int generarID();
-Lista crearNodo(char *desc, int duracion);
-void agregarTarea(Lista *lista, Lista nodo);
-void mostrarTarea(Tarea t);
-void listarTareas(Lista lista, const char *titulo);
-Lista buscarYRemoverTarea(Lista *lista, int id);
-void buscarTareaPorID(Lista pendientes, Lista realizadas, int id);
-void buscarTareaPorPalabra(Lista pendientes, Lista realizadas, char *palabra);
-void liberarLista(Lista *lista);
+void cargarClientes(struct Cliente *clientes, int cantidadClientes);
+void generarProductos(struct Producto *productos, int cantidad);
+float calcularCostoTotal(struct Producto producto);
+void mostrarInformacion(struct Cliente *clientes, int cantidadClientes);
+void agregarTarea(struct Nodo **lista, struct Tarea tarea); 
+void moverTarea(struct Nodo **listaOrigen, struct Nodo **listaDestino, int tareaID);
+void elegirTareas(struct Nodo **pendientes, struct Nodo **realizadas);
+void listarTareas(struct Nodo *lista, const char *nombre);
+void cargarTareas(struct Nodo **lista);
+void consultarTareas(struct Nodo *pendientes, struct Nodo *realizadas, int id);
 
-int idGlobal = ID_INICIAL;
+int tareaID = 1000;
 
 int main() {
-    Lista pendientes = crearListaVacia();
-    Lista realizadas = crearListaVacia();
-    int opcion;
+    srand(time(NULL));
 
-    do {
-        printf("\n=== MENU ===\n");
-        printf("1. Cargar tareas pendientes\n");
-        printf("2. Marcar tareas como realizadas\n");
-        printf("3. Listar tareas\n");
-        printf("4. Buscar tarea por ID o palabra clave\n");
-        printf("0. Salir\n");
-        printf("Opcion: ");
-        scanf("%d", &opcion);
-        getchar();
+    int cantidadClientes;
+    printf("Ingrese la cantidad de clientes: ");
+    scanf("%d", &cantidadClientes);
+    getchar(); 
 
-        if (opcion == 1) {
-            char descripcion[256];
-            int duracion;
-            char seguir;
-            do {
-                printf("\nDescripcion: ");
-                gets(descripcion);
-                do {
-                    printf("Duracion (10-100): ");
-                    scanf("%d", &duracion);
-                    getchar();
-                } while (duracion < 10 || duracion > 100);
+    struct Cliente *clientes = (struct Cliente*) malloc(cantidadClientes * sizeof(struct Cliente));
 
-                Lista nuevo = crearNodo(descripcion, duracion);
-                agregarTarea(&pendientes, nuevo);
+    cargarClientes(clientes, cantidadClientes);
+    mostrarInformacion(clientes, cantidadClientes);
 
-                printf("¿Cargar otra tarea? (s/n): ");
-                scanf("%c", &seguir);
-                getchar();
-            } while (seguir == 's' || seguir == 'S');
+    // Cargar tareas pendientes
+    printf("\nCarga de tareas pendientes:\n");
+    cargarTareas(&tareasPendientes);
 
-        } else if (opcion == 2) {
-            listarTareas(pendientes, "TAREAS PENDIENTES");
-            int id;
-            printf("ID de la tarea a marcar como realizada: ");
-            scanf("%d", &id);
-            getchar();
-            Lista movida = buscarYRemoverTarea(&pendientes, id);
-            if (movida) {
-                agregarTarea(&realizadas, movida);
-                printf("Tarea marcada como realizada.\n");
-            } else {
-                printf("ID no encontrado.\n");
-            }
+    // Elegir tareas para marcar como realizadas
+    printf("\nEleccion de tareas para marcar como realizadas:\n");
+    elegirTareas(&tareasPendientes, &tareasRealizadas);
 
-        } else if (opcion == 3) {
-            listarTareas(pendientes, "TAREAS PENDIENTES");
-            listarTareas(realizadas, "TAREAS REALIZADAS");
+    // Listar todas las tareas
+    printf("\nListado de todas las tareas:\n");
+    listarTareas(tareasPendientes, "Tareas pendientes");
+    listarTareas(tareasRealizadas, "Tareas realizadas");
 
-        } else if (opcion == 4) {
-            char entrada[256];
-            printf("Buscar por ID o palabra clave: ");
-            gets(entrada);
-            if (strspn(entrada, "0123456789") == strlen(entrada)) {
-                buscarTareaPorID(pendientes, realizadas, atoi(entrada));
-            } else {
-                buscarTareaPorPalabra(pendientes, realizadas, entrada);
-            }
+    // Consultar tareas por ID
+    printf("\nConsulta de tareas por ID:\n");
+    printf("Ingrese el ID de la tarea que desea consultar: ");
+    int id;
+    scanf("%d", &id);
+    getchar();
+    consultarTareas(tareasPendientes, tareasRealizadas, id);
 
-        } else if (opcion == 0) {
-            printf("Saliendo...\n");
+    // Liberar memoria
+    for (int i = 0; i < cantidadClientes; i++) {
+        free(clientes[i].NombreCliente);
+        free(clientes[i].Productos);
+    }
+    free(clientes);
 
-        } else {
-            printf("Opcion invalida.\n");
-        }
-
-    } while (opcion != 0);
-
-    liberarLista(&pendientes);
-    liberarLista(&realizadas);
     return 0;
 }
 
-Lista crearListaVacia() {
-    return NULL;
+
+void cargarClientes(struct Cliente *clientes, int cantidadClientes) {
+    for (int i = 0; i < cantidadClientes; i++) {
+        printf("Ingrese el nombre del cliente %d: ", i + 1);
+        char nombre[100];
+        gets(nombre);
+        clientes[i].NombreCliente = strdup(nombre);
+
+        clientes[i].ClienteID = i + 1;
+        clientes[i].CantidadProductosAPedir = rand() % 5 + 1;
+        clientes[i].Productos = (struct Producto*) malloc(clientes[i].CantidadProductosAPedir * sizeof(struct Producto));
+
+        generarProductos(clientes[i].Productos, clientes[i].CantidadProductosAPedir);
+    }
 }
 
-int generarID() {
-    return idGlobal++;
+void generarProductos(struct Producto *productos, int cantidad) {
+    char *TiposProductos[] = {"Galletas", "Snack", "Cigarrillos", "Caramelos", "Bebidas"};
+
+    for (int i = 0; i < cantidad; i++) {
+        productos[i].ProductoID = i + 1;
+        productos[i].Cantidad = rand() % 10 + 1;            
+        productos[i].TipoProducto = TiposProductos[rand() % 5]; 
+        productos[i].PrecioUnitario = (rand() % 91) + 10; 
+    }
 }
 
-Lista crearNodo(char *desc, int duracion) {
-    Lista nuevo = (Lista)malloc(sizeof(Nodo));
-    nuevo->T.TareaID = generarID();
-    nuevo->T.Descripcion = strdup(desc);
-    nuevo->T.Duracion = duracion;
-    nuevo->Siguiente = NULL;
-    return nuevo;
+float calcularCostoTotal(struct Producto producto) {
+    return producto.Cantidad * producto.PrecioUnitario;
 }
 
-void agregarTarea(Lista *lista, Lista nodo) {
-    nodo->Siguiente = *lista;
-    *lista = nodo;
+void mostrarInformacion(struct Cliente *clientes, int cantidadClientes) {
+    for (int i = 0; i < cantidadClientes; i++) {
+        printf("Cliente %d - Nombre: %s\n", clientes[i].ClienteID, clientes[i].NombreCliente);
+        float totalPagar = 0.0;
+        for (int j = 0; j < clientes[i].CantidadProductosAPedir; j++) {
+            printf("  Producto %d:\n", j + 1);
+            printf("    ProductoID: %d\n", clientes[i].Productos[j].ProductoID);
+            printf("    Cantidad: %d\n", clientes[i].Productos[j].Cantidad);
+            printf("    TipoProducto: %s\n", clientes[i].Productos[j].TipoProducto);
+            printf("    PrecioUnitario: %.2f\n", clientes[i].Productos[j].PrecioUnitario);
+            float costoTotal = calcularCostoTotal(clientes[i].Productos[j]);
+            printf("    Costo total: %.2f\n", costoTotal);
+            totalPagar += costoTotal;
+        }
+        printf("  Total a pagar: %.2f\n", totalPagar);
+    }
 }
 
-void mostrarTarea(Tarea t) {
-    printf("ID: %d | Duracion: %d | Descripcion: %s\n", t.TareaID, t.Duracion, t.Descripcion);
+void agregarTarea(struct Nodo **lista, struct Tarea tarea) {
+    struct Nodo *nuevoNodo = (struct Nodo*) malloc(sizeof(struct Nodo));
+    nuevoNodo->T = tarea;
+    nuevoNodo->Siguiente = *lista;
+    *lista = nuevoNodo;
 }
 
-void listarTareas(Lista lista, const char *titulo) {
-    printf("\n--- %s ---\n", titulo);
-    if (!lista) {
-        printf("No hay tareas.\n");
+void moverTarea(struct Nodo **listaOrigen, struct Nodo **listaDestino, int tareaID) {
+    struct Nodo *nodoActual = *listaOrigen;
+    struct Nodo *nodoAnterior = NULL;
+
+    while (nodoActual != NULL && nodoActual->T.TareaID != tareaID) {
+        nodoAnterior = nodoActual;
+        nodoActual = nodoActual->Siguiente;
+    }
+
+    if (nodoActual == NULL) {
+        printf("No se encontro la tarea con ID %d.\n", tareaID);
         return;
     }
-    Lista actual = lista;
-    while (actual) {
-        mostrarTarea(actual->T);
-        actual = actual->Siguiente;
+
+    if (nodoAnterior != NULL) {
+        nodoAnterior->Siguiente = nodoActual->Siguiente;
+    } else {
+        *listaOrigen = nodoActual->Siguiente;
+    }
+
+    nodoActual->Siguiente = *listaDestino;
+    *listaDestino = nodoActual;
+}
+
+
+void cargarTareas(struct Nodo **lista) {
+    while (1) {
+        struct Tarea tarea;
+        tarea.TareaID = tareaID++;
+        printf("Ingrese la descripción de la tarea: ");
+        char descripcion[100];
+        gets(descripcion);
+        tarea.Descripcion = strdup(descripcion);
+        printf("Ingrese la duracion de la tarea: ");
+        scanf("%d", &tarea.Duracion);
+        getchar();
+        agregarTarea(lista, tarea);
+
+        printf("¿Desea ingresar una nueva tarea? (s/n): ");
+        char respuesta;
+        scanf("%c", &respuesta);
+        getchar();
+        if (respuesta != 's' && respuesta != 'S') {
+            break;
+        }
     }
 }
 
-Lista buscarYRemoverTarea(Lista *lista, int id) {
-    Lista actual = *lista, *anterior = NULL;
-    while (actual) {
-        if (actual->T.TareaID == id) {
-            if (!anterior)
-                *lista = actual->Siguiente;
-            else
-                anterior->Siguiente = actual->Siguiente;
-            actual->Siguiente = NULL;
-            return actual;
+void elegirTareas(struct Nodo **pendientes, struct Nodo **realizadas) {
+    while (*pendientes != NULL) {
+        printf("Tareas pendientes:\n");
+        struct Nodo *nodo = *pendientes;
+        while (nodo != NULL) {
+            printf("  ID: %d, Descripcion: %s, Duracion: %d\n", nodo->T.TareaID, nodo->T.Descripcion, nodo->T.Duracion);
+            nodo = nodo->Siguiente;
         }
-        anterior = actual;
-        actual = actual->Siguiente;
+
+        printf("Ingrese el ID de la tarea que desea marcar como realizada: ");
+        int id;
+        scanf("%d", &id);
+        getchar();
+        moverTarea(pendientes, realizadas, id);
     }
-    return NULL;
 }
 
-void buscarTareaPorID(Lista pendientes, Lista realizadas, int id) {
-    Lista aux = pendientes;
-    while (aux) {
-        if (aux->T.TareaID == id) {
-            printf("Tarea en PENDIENTES:\n");
-            mostrarTarea(aux->T);
-            return;
-        }
-        aux = aux->Siguiente;
+void listarTareas(struct Nodo *lista, const char *nombre) {
+    printf("%s:\n", nombre);
+    struct Nodo *nodo = lista;
+    while (nodo != NULL) {
+        printf("  ID: %d, Descripcion: %s, Duracion: %d\n", nodo->T.TareaID, nodo->T.Descripcion, nodo->T.Duracion);
+        nodo = nodo->Siguiente;
     }
-    aux = realizadas;
-    while (aux) {
-        if (aux->T.TareaID == id) {
-            printf("Tarea en REALIZADAS:\n");
-            mostrarTarea(aux->T);
-            return;
-        }
-        aux = aux->Siguiente;
-    }
-    printf("No se encontro ninguna tarea con ID %d.\n", id);
 }
 
-void buscarTareaPorPalabra(Lista pendientes, Lista realizadas, char *palabra) {
-    int encontrada = 0;
-    Lista aux = pendientes;
-    while (aux) {
-        if (strstr(aux->T.Descripcion, palabra)) {
-            if (!encontrada) printf("Coincidencias con '%s':\n", palabra);
-            printf("Pendiente: ");
-            mostrarTarea(aux->T);
-            encontrada = 1;
-        }
-        aux = aux->Siguiente;
+void consultarTareas(struct Nodo *pendientes, struct Nodo *realizadas, int id) {
+    struct Nodo *nodo = pendientes;
+    while (nodo != NULL && nodo->T.TareaID != id) {
+        nodo = nodo->Siguiente;
     }
-    aux = realizadas;
-    while (aux) {
-        if (strstr(aux->T.Descripcion, palabra)) {
-            if (!encontrada) printf("Coincidencias con '%s':\n", palabra);
-            printf("Realizada: ");
-            mostrarTarea(aux->T);
-            encontrada = 1;
-        }
-        aux = aux->Siguiente;
+    if (nodo != NULL) {
+        printf("Tarea pendiente - ID: %d, Descripcion: %s, Duracion: %d\n", nodo->T.TareaID, nodo->T.Descripcion, nodo->T.Duracion);
+        return;
     }
-    if (!encontrada)
-        printf("No se encontro ninguna tarea con esa palabra.\n");
-}
 
-void liberarLista(Lista *lista) {
-    Lista aux;
-    while (*lista) {
-        aux = *lista;
-        *lista = (*lista)->Siguiente;
-        free(aux->T.Descripcion);
-        free(aux);
+    nodo = realizadas;
+    while (nodo != NULL && nodo->T.TareaID != id) {
+        nodo = nodo->Siguiente;
+    }
+    if (nodo != NULL) {
+        printf("Tarea realizada - ID: %d, Descripcion: %s, Duracion: %d\n", nodo->T.TareaID, nodo->T.Descripcion, nodo->T.Duracion);
     }
 }
