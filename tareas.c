@@ -1,28 +1,30 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>  // Incluir ctype.h para isdigit
+#include <ctype.h>  // para usar isdigit en la búsqueda por id
 
 #define ID_INICIAL 1000
 
-// variable global para los ids
+// variable global para ir generando los ids automáticamente
 int id_actual = ID_INICIAL;
 
-// definiciones de tipos
+// estructura para representar una tarea
 typedef struct tarea {
-    int id;
-    char *descripcion;
-    int duracion;
+    int id;             // id único
+    char *descripcion;  // puntero dinámico para la descripción
+    int duracion;       // duración entre 10 y 100
 } Tarea;
 
+// estructura del nodo de la lista
 typedef struct nodo {
-    Tarea t;
-    struct nodo *siguiente;
+    Tarea t;            // cada nodo tiene una tarea
+    struct nodo *siguiente;  // y un puntero al siguiente nodo
 } Nodo;
 
+// puntero a Nodo (más cómodo para manejar listas)
 typedef Nodo *Lista;
 
-// funciones declaradas
+// declaraciones de las funciones que vamos a usar
 Lista crear_lista();
 int generar_id();
 Lista crear_nodo(char *desc, int duracion);
@@ -43,6 +45,7 @@ int main() {
     int duracion;
     Lista n;
 
+    // menú principal
     do {
         printf("\nmenu:\n");
         printf("1. cargar tareas\n");
@@ -52,30 +55,32 @@ int main() {
         printf("0. salir\n");
         printf("opcion: ");
         scanf("%d", &opcion);
-        getchar(); // Limpiar el buffer de entrada
+        getchar(); // limpia el enter que queda en el buffer
 
         switch(opcion) {
             case 1:
+                // cargar tareas en la lista de pendientes
                 do {
                     printf("descripcion: ");
-                    gets(desc);
+                    gets(desc);  // se podría usar fgets, pero uso gets por simplicidad
                     do {
                         printf("duracion (10-100): ");
                         scanf("%d", &duracion);
-                        getchar(); // Limpiar el buffer de entrada
+                        getchar(); // limpiar el enter
                     } while (duracion < 10 || duracion > 100);
                     n = crear_nodo(desc, duracion);
                     pendientes = agregar_tarea(pendientes, n);
                     printf("cargar otra? (s/n): ");
                     scanf("%c", &seguir);
-                    getchar(); // Limpiar el buffer de entrada
+                    getchar();
                 } while (seguir == 's' || seguir == 'S');
                 break;
             case 2:
+                // pasar una tarea de pendientes a realizadas
                 mostrar_lista(pendientes, "pendientes");
                 printf("id de la tarea a mover: ");
                 scanf("%d", &id);
-                getchar(); // Limpiar el buffer de entrada
+                getchar();
                 n = mover_tarea(&pendientes, id);
                 if (n != NULL) {
                     realizadas = agregar_tarea(realizadas, n);
@@ -85,41 +90,37 @@ int main() {
                 }
                 break;
             case 3:
+                // mostrar ambas listas
                 mostrar_lista(pendientes, "pendientes");
                 mostrar_lista(realizadas, "realizadas");
                 break;
             case 4:
+                // búsqueda por palabra o id
                 printf("buscar en pendientes o realizadas? (p/r): ");
                 char lista_elegida;
                 scanf("%c", &lista_elegida);
-                getchar(); // Limpiar el buffer de entrada
+                getchar();
 
-                if (lista_elegida == 'p' || lista_elegida == 'P') {
-                    printf("buscar por id o palabra: ");
-                    gets(entrada);
-                    if (isdigit(entrada[0])) {  // Usando isdigit de ctype.h
-                        id = 0;
-                        for (int i = 0; entrada[i] != '\0'; i++) {
-                            id = id * 10 + (entrada[i] - '0');
-                        }
-                        buscar_por_id(pendientes, id);
-                    } else {
-                        buscar_por_palabra(pendientes, entrada);
+                printf("buscar por id o palabra: ");
+                gets(entrada);
+                if (isdigit(entrada[0])) {  // si arranca con número, interpreto como id
+                    id = 0;
+                    for (int i = 0; entrada[i] != '\0'; i++) {
+                        id = id * 10 + (entrada[i] - '0');
                     }
-                } else if (lista_elegida == 'r' || lista_elegida == 'R') {
-                    printf("buscar por id o palabra: ");
-                    gets(entrada);
-                    if (isdigit(entrada[0])) {  // Usando isdigit de ctype.h
-                        id = 0;
-                        for (int i = 0; entrada[i] != '\0'; i++) {
-                            id = id * 10 + (entrada[i] - '0');
-                        }
+                    if (lista_elegida == 'p' || lista_elegida == 'P') {
+                        buscar_por_id(pendientes, id);
+                    } else if (lista_elegida == 'r' || lista_elegida == 'R') {
                         buscar_por_id(realizadas, id);
-                    } else {
-                        buscar_por_palabra(realizadas, entrada);
                     }
                 } else {
-                    printf("opcion invalida\n");
+                    if (lista_elegida == 'p' || lista_elegida == 'P') {
+                        buscar_por_palabra(pendientes, entrada);
+                    } else if (lista_elegida == 'r' || lista_elegida == 'R') {
+                        buscar_por_palabra(realizadas, entrada);
+                    } else {
+                        printf("opcion invalida\n");
+                    }
                 }
                 break;
             case 0:
@@ -131,38 +132,45 @@ int main() {
 
     } while (opcion != 0);
 
+    // liberar memoria antes de terminar
     pendientes = liberar_lista(pendientes);
     realizadas = liberar_lista(realizadas);
     return 0;
 }
 
+// crea una lista vacía
 Lista crear_lista() {
     return NULL;
 }
 
+// genera un id autoincremental
 int generar_id() {
     return id_actual++;
 }
 
+// crea un nodo nuevo con la descripción y duración pasadas
 Lista crear_nodo(char *desc, int duracion) {
     Lista n = (Lista)malloc(sizeof(Nodo));
     n->t.id = generar_id();
-    n->t.descripcion = (char *)malloc(strlen(desc) + 1);
+    n->t.descripcion = (char *)malloc(strlen(desc) + 1);  // memoria dinámica para la descripción
     strcpy(n->t.descripcion, desc);
     n->t.duracion = duracion;
     n->siguiente = NULL;
     return n;
 }
 
+// agrega una tarea al principio de la lista (como pila)
 Lista agregar_tarea(Lista lista, Lista nuevo) {
     nuevo->siguiente = lista;
     return nuevo;
 }
 
+// muestra los datos de una sola tarea
 void mostrar_tarea(Tarea t) {
     printf("id: %d | duracion: %d | desc: %s\n", t.id, t.duracion, t.descripcion);
 }
 
+// muestra todas las tareas de la lista
 void mostrar_lista(Lista lista, char *nombre) {
     printf("\n--- %s ---\n", nombre);
     if (lista == NULL) {
@@ -175,6 +183,7 @@ void mostrar_lista(Lista lista, char *nombre) {
     }
 }
 
+// busca una tarea por id y la saca de la lista original
 Lista mover_tarea(Lista *origen, int id) {
     Lista act = *origen, ant = NULL;
     while (act != NULL) {
@@ -184,7 +193,7 @@ Lista mover_tarea(Lista *origen, int id) {
             } else {
                 ant->siguiente = act->siguiente;
             }
-            act->siguiente = NULL;
+            act->siguiente = NULL;  // desconecto el nodo
             return act;
         }
         ant = act;
@@ -193,6 +202,7 @@ Lista mover_tarea(Lista *origen, int id) {
     return NULL;
 }
 
+// busca una tarea por id exacto
 void buscar_por_id(Lista lista, int id) {
     while (lista != NULL) {
         if (lista->t.id == id) {
@@ -205,10 +215,11 @@ void buscar_por_id(Lista lista, int id) {
     printf("no se encontro la tarea\n");
 }
 
+// busca tareas que contengan una palabra en la descripción
 void buscar_por_palabra(Lista lista, char *clave) {
     int enc = 0;
     while (lista != NULL) {
-        if (strstr(lista->t.descripcion, clave)) {
+        if (strstr(lista->t.descripcion, clave)) {  // strstr devuelve puntero si encuentra la clave
             if (!enc) printf("resultados:\n");
             mostrar_tarea(lista->t);
             enc = 1;
@@ -218,13 +229,14 @@ void buscar_por_palabra(Lista lista, char *clave) {
     if (!enc) printf("no se encontro nada\n");
 }
 
+// libera toda la memoria usada por una lista
 Lista liberar_lista(Lista lista) {
     Lista aux;
     while (lista != NULL) {
         aux = lista;
         lista = lista->siguiente;
-        free(aux->t.descripcion);
-        free(aux);
+        free(aux->t.descripcion);  // liberar la descripción dinámica
+        free(aux);  // liberar el nodo
     }
     return NULL;
 }
